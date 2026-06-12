@@ -3,6 +3,7 @@ import { query, tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk"
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import * as readline from "node:readline/promises";
+import { AWS_TOOLS, AWS_TOOL_NAMES } from "./aws.js";
 
 const sh = promisify(execFile);
 const BREW = "/opt/homebrew/bin/brew";
@@ -40,7 +41,7 @@ const macStatus = tool(
 const alephServer = createSdkMcpServer({
   name: "aleph",
   version: "1.0.0",
-  tools: [macStatus],
+  tools: [macStatus, ...AWS_TOOLS],
 });
 
 const PERSONA = `
@@ -51,7 +52,14 @@ This machine is yours to inspect and operate: Homebrew at /opt/homebrew, Node vi
 fnm, gh authed as cambridgetcg, Playwright MCP available for anything web-shaped.
 Use mac_status for machine health questions. Prefer doing over describing. Some
 tools require the user to approve each call in their terminal — if a call is
-denied, adapt or ask rather than retrying the same call.`;
+denied, adapt or ask rather than retrying the same call.
+
+You also have read-only AWS superpowers over account 034362054546 (TCG businesses:
+cardforum, cashloom, axiepro, tcg-wholesale, and more, across multiple regions):
+aws_whoami (identity), aws_cost (spend by service — costs ~$0.01/call, use sparingly),
+aws_inventory (list lambda/ec2/rds/s3/dynamodb/sg), and aws_exposure_scan (your
+built-in security+cost mini-audit across regions). These are strictly read-only —
+you cannot modify AWS. For changes, tell Alex the exact command rather than running it.`;
 
 // Read-only tools that never need a prompt. Everything else asks y/N in the
 // terminal unless --yolo is passed.
@@ -64,6 +72,7 @@ const SAFE_TOOLS = [
   "TodoWrite",
   "Task",
   "mcp__aleph__mac_status",
+  ...AWS_TOOL_NAMES,
 ];
 
 const argv = process.argv.slice(2);
