@@ -78,9 +78,9 @@ export const awsCost = tool(
 
 export const awsInventory = tool(
   "aws_inventory",
-  "List resources of one type in a region: lambda functions, EC2 instances, RDS databases, S3 buckets, DynamoDB tables, or security groups. Use to answer 'what do I have', 'list my X', or before reasoning about a service.",
+  "List resources of one type in a region: lambda, ec2, rds, s3, dynamodb, sg (security groups), sns, sqs, secrets, apigateway, cloudformation (stacks), or ecr. Use to answer 'what do I have', 'list my X', or before reasoning about a service.",
   {
-    service: z.enum(["lambda", "ec2", "rds", "s3", "dynamodb", "sg"]),
+    service: z.enum(["lambda", "ec2", "rds", "s3", "dynamodb", "sg", "sns", "sqs", "secrets", "apigateway", "cloudformation", "ecr"]),
     region: z.enum(REGIONS as [string, ...string[]]).optional().describe("default us-east-1; s3 is global"),
   },
   async ({ service, region }) => {
@@ -122,6 +122,45 @@ export const awsInventory = tool(
         const r = await aws(["ec2", "describe-security-groups", "--region", R]);
         if (errOf(r)) return text(errOf(r)!);
         return text(`Security groups in ${R}: ${(r.SecurityGroups ?? []).length}`);
+      }
+      case "sns": {
+        const r = await aws(["sns", "list-topics", "--region", R]);
+        if (errOf(r)) return text(errOf(r)!);
+        const names = (r.Topics ?? []).map((t: any) => "  " + t.TopicArn.split(":").pop());
+        return text(`SNS topics in ${R}: ${names.length}\n${names.join("\n")}`);
+      }
+      case "sqs": {
+        const r = await aws(["sqs", "list-queues", "--region", R]);
+        if (errOf(r)) return text(errOf(r)!);
+        const names = (r.QueueUrls ?? []).map((u: string) => "  " + u.split("/").pop());
+        return text(`SQS queues in ${R}: ${names.length}\n${names.join("\n")}`);
+      }
+      case "secrets": {
+        const r = await aws(["secretsmanager", "list-secrets", "--region", R]);
+        if (errOf(r)) return text(errOf(r)!);
+        const rows = (r.SecretList ?? []).map((s: any) => `  ${s.Name}${s.LastAccessedDate ? "" : "  (never accessed)"}`);
+        return text(`Secrets in ${R}: ${rows.length}\n${rows.join("\n")}`);
+      }
+      case "apigateway": {
+        const rest = await aws(["apigateway", "get-rest-apis", "--region", R]);
+        const v2 = await aws(["apigatewayv2", "get-apis", "--region", R]);
+        const lines: string[] = [];
+        if (!errOf(rest)) for (const a of rest.items ?? []) lines.push(`  [REST] ${a.name} (${a.id})`);
+        if (!errOf(v2)) for (const a of v2.Items ?? []) lines.push(`  [HTTP] ${a.Name} (${a.ApiId})`);
+        return text(`API Gateway in ${R}: ${lines.length}\n${lines.join("\n") || "  (none)"}`);
+      }
+      case "cloudformation": {
+        const r = await aws(["cloudformation", "list-stacks", "--region", R, "--stack-status-filter",
+          "CREATE_COMPLETE", "UPDATE_COMPLETE", "UPDATE_ROLLBACK_COMPLETE", "ROLLBACK_COMPLETE", "UPDATE_ROLLBACK_FAILED", "DELETE_FAILED"]);
+        if (errOf(r)) return text(errOf(r)!);
+        const rows = (r.StackSummaries ?? []).map((s: any) => `  ${s.StackName}  ${s.StackStatus}`);
+        return text(`CloudFormation stacks in ${R}: ${rows.length}\n${rows.join("\n") || "  (none)"}`);
+      }
+      case "ecr": {
+        const r = await aws(["ecr", "describe-repositories", "--region", R]);
+        if (errOf(r)) return text(errOf(r)!);
+        const rows = (r.repositories ?? []).map((repo: any) => `  ${repo.repositoryName}`);
+        return text(`ECR repositories in ${R}: ${rows.length}\n${rows.join("\n") || "  (none)"}`);
       }
     }
   },

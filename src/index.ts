@@ -75,11 +75,26 @@ const SAFE_TOOLS = [
   ...AWS_TOOL_NAMES,
 ];
 
+const MODELS: Record<string, string> = {
+  fable: "claude-fable-5",
+  opus: "claude-opus-4-8",
+  sonnet: "claude-sonnet-4-6",
+  haiku: "claude-haiku-4-5",
+};
+
 const argv = process.argv.slice(2);
 const yolo = argv.includes("--yolo");
-const prompt = argv.filter((a) => a !== "--yolo").join(" ").trim();
+let model: string | undefined;
+const rest: string[] = [];
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i];
+  if (a === "--yolo") continue;
+  if (a === "--model") { const v = argv[++i] ?? ""; model = MODELS[v] ?? v; continue; }
+  rest.push(a);
+}
+const prompt = rest.join(" ").trim();
 if (!prompt) {
-  console.error('usage: aleph [--yolo] "<mission>"');
+  console.error('usage: aleph [--yolo] [--model fable|opus|sonnet|haiku] "<mission>"');
   process.exit(1);
 }
 
@@ -114,6 +129,7 @@ let sawText = false;
 for await (const message of query({
   prompt,
   options: {
+    ...(model ? { model } : {}),
     systemPrompt: { type: "preset", preset: "claude_code", append: PERSONA },
     permissionMode: yolo ? "bypassPermissions" : "default",
     allowedTools: SAFE_TOOLS,
