@@ -1,0 +1,24 @@
+{
+  "name": "aleph",
+  "version": "1.0.0",
+  "description": "א — Alex's personal Mac agent, built on the Claude Agent SDK",
+  "type": "module",
+  "bin": {
+    "aleph": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts"
+  },
+  "author": "Aleph(א) <alex@sinovai.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.173",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
